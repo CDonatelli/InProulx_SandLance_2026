@@ -1,0 +1,158 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+These are the libraries you will need. RStudio should prompt you to install them
+when it opens, but if not you can type install.packages("readxl") for each of 
+them in the console
+```{r}
+library(readxl)
+library(ggplot2)
+library(paletteer)
+library(stringr)
+library(dplyr)
+library(RColorBrewer)
+library(cowplot)
+library(ggpubr)
+```
+#Make sure the xlsx file is in the same folder as this R-file
+```{r}
+DLTdv8_Data <- read_excel("DLTdv8 Model Videos Data.xlsx", na = "inf")
+View(DLTdv8_Data)
+
+
+# This removes rows with missing data
+DLTdv8_Data <- na.omit(DLTdv8_Data)
+
+DLTdv8_Data <- DLTdv8_Data %>%
+  arrange(Model, Freq.Hz)
+```
+
+#Kinematic Analysis
+```{r}
+DLTdv8_summary <- DLTdv8_Data %>%
+  dplyr::filter(`Used.in.analysis?` == "Yes") %>%
+  mutate(across(c(waveSpeed.ms, ScaledY1amp.mm, ScaledY2amp.mm),
+                ~ suppressWarnings(as.numeric(.x)))) %>%
+  mutate(waveSpeed.ms = ifelse(is.infinite(waveSpeed.ms), NA, waveSpeed.ms)) %>%
+  group_by(Model, Freq.Hz) %>%
+  summarize(across(c(waveSpeed.ms, ScaledY1amp.mm, ScaledY2amp.mm),
+                   list(mean = ~ mean(.x, na.rm = TRUE))),
+            n = n(), .groups = "drop")
+
+# Frequency and Tail Amplitude
+ggplot(data = DLTdv8_summary, aes(x = Freq.Hz, y = ScaledY1amp.mm_mean, color = Model)) +
+  geom_point(size = 5) +
+  theme_classic() +
+  scale_color_manual(values = c("#CC6677", "#332288", "#117733", "#AA4499", "#882255","#44AA99", "#88CCEE", "#6699CC")) +
+  xlab("Actuator Frequency") +
+  ylab("Tail Amplitude (mm)") +
+  geom_line()
+ggsave("FreqvTailAmp.png", height = 5, width = 5, units = "in")
+
+# Frequency at Tail vs Head
+ggplot(data = DLTdv8_Data, aes(x = Y2freq, y = Y1freq, color = Model))+ #ggplot line
+  geom_point(size = 5)+
+  theme_classic()+
+  scale_color_manual(values = c("#CC6677", "#332288", "#117733", "#AA4499", "#882255","#44AA99", "#88CCEE", "#6699CC"))+
+  xlab("Head Frequency")+
+  ylab("Tail Frequency")+
+  geom_smooth(method="lm", se=FALSE) #geometry line
+ggsave("HeadvTailFreq.png", height = 5, width = 5, units = "in")
+
+# Frequency and Wavespeed
+ggplot(DLTdv8_summary, aes(x = Freq.Hz, y = waveSpeed.ms_mean, color = Model, group = Model)) +
+  geom_point(size = 5) +
+  geom_line() +
+  theme_classic() +
+  scale_color_manual(values = c("#CC6677", "#332288", "#117733", "#AA4499", "#882255","#44AA99", "#88CCEE", "#6699CC")) 
+ggsave("WaveSpeedvFreq.png", height = 5, width = 5, units = "in")
+
+# Amplitude Ratio
+ggplot(data = DLTdv8_Data, aes(x = Y2amp, y = Y1amp, color = Model))+ #ggplot line
+  geom_point(size = 5)+
+  theme_classic()+
+  scale_color_manual(values = c("#CC6677", "#332288", "#117733", "#AA4499", "#882255","#44AA99", "#88CCEE", "#6699CC"))+
+  xlab("Head Amplitude")+
+  ylab("Tail Amplitude")+
+  geom_smooth(method="lm", se=FALSE) #geometry line
+ggsave("HeadTailAmplitudes.png", height = 5, width = 6, units = "in")
+
+
+```
+R Colors: https://sape.inf.usi.ch/quick-reference/ggplot2/colour
+R Color Palettes: https://r-graph-gallery.com/38-rcolorbrewers-palettes.html
+
+```{r}
+lm_eqn <- function(y,x){
+    m <- lm(y ~ x);
+    eq <- substitute(italic(y) == a + b %.% italic(x)*","~~italic(r)^2~"="~r2, 
+         list(a = format(unname(coef(m)[1]), digits = 2),
+              b = format(unname(coef(m)[2]), digits = 2),
+             r2 = format(summary(m)$r.squared, digits = 3)))
+    as.character(as.expression(eq));
+}
+```
+
+#Scatterplots ()
+```{r}
+# Separating by Model
+library(dplyr)
+AModels <- dplyr::filter(DLTdv8_Data, Model == "A")
+BModels <- dplyr::filter(DLTdv8_Data, Model == "B")
+CModels <- dplyr::filter(DLTdv8_Data, Model == "C")
+DModels <- dplyr::filter(DLTdv8_Data, Model == "D")
+EModels <- dplyr::filter(DLTdv8_Data, Model == "E")
+FModels <- dplyr::filter(DLTdv8_Data, Model == "F")
+GModels <- dplyr::filter(DLTdv8_Data, Model == "G")
+HModels <- dplyr::filter(DLTdv8_Data, Model == "H")
+
+# Amplitude Ratios
+amplitude_ratios <- DLTdv8_Data %>%
+  dplyr::filter(`Used.in.analysis?` == "Yes") %>%
+  group_by(Model, Freq.Hz) %>%
+  summarise(amp_ratio = mean(Y1amp / Y2amp, na.rm = TRUE), .groups = "drop")
+
+ggplot(amplitude_ratios,
+       aes(x = Freq.Hz, y = amp_ratio, color = Model)) +
+  geom_point(size = 5) +
+  geom_line() +
+  labs(x = "Frequency (Hz)",
+       y = "Amplitude Ratio (Tail / Head)") +
+  scale_color_manual(values = c("#CC6677", "#332288", "#117733", "#AA4499", "#882255","#44AA99", "#88CCEE", "#6699CC"))+
+  theme_classic()
+ggsave("AmpRatiosvFreq.png", height = 5 , width = 10.5, units = "in")
+
+amplitude_ratios <- amplitude_ratios %>%
+  mutate(
+    model = factor(Model),
+    frequency = factor(Freq.Hz)
+  )
+
+amplitude_ratios$model <- factor(amplitude_ratios$model)
+
+
+# Do model and frequency predict amplitude ratios?
+lm1 <- lm(amp_ratio ~ model + Freq.Hz, data = amplitude_ratios)
+anova(lm1)
+
+# model-specific frequency response
+lm2 <- lm(amp_ratio ~ model * Freq.Hz, data = amplitude_ratios)
+anova(lm2)
+
+# does freq predict amp ratio
+lm3 <- lm(amp_ratio ~ Freq.Hz, data = amplitude_ratios)
+anova(lm3)
+
+
+# does model predict amp ratio
+anova_model <- aov(amp_ratio ~ model, data = amplitude_ratios)
+summary(anova_model)
+
+tukey_models <- TukeyHSD(anova_model, "model")
+
+print(tukey_models)
+
+```
+
