@@ -12,10 +12,8 @@ library(signal)
 ```
 # Read in Data
 ```{r}
-refpts <- read_csv("DLTdv8_model_length_xypts.csv")
-
-setwd("/Users/elynorein/Documents/GitHub/sandlanceverts/SL_ModelVideoPts/")
-xypts <- read_csv("Set1_H_Freq1_xypts.csv")
+setwd("SL_ModelVideoPts")
+xypts <- read_csv("Set1_A_Freq1_xypts.csv")
 xypts <- na.omit(xypts)
 colnames(xypts) <- c("X1", "Y1", "X2", "Y2")
 
@@ -24,8 +22,7 @@ fps <- 30
 xypts$time <- (0:(nrow(xypts)-1)) / fps
 
 # Spatial distance between head and tail points (length of the model, used later)
-distance <- 235 #mm  # replace with actual length of the models
-refpts <- na.omit(refpts)
+distance <- 235 #mm  
 model_length_px <- 658.621
 scale <- distance / model_length_px
 
